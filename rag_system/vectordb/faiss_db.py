@@ -12,7 +12,8 @@ class FAISSVectorDB(VectorDB):
         self.index = None
         self.docs = []
 
-    def index(self, embeddings, documents):
+    def build_index(self, embeddings, documents):
+        # called from orchestrator to build index
         dim = len(embeddings[0])
         self.index = faiss.IndexFlatL2(dim)
         self.index.add(np.array(embeddings).astype('float32'))
@@ -21,7 +22,7 @@ class FAISSVectorDB(VectorDB):
 
     def query(self, embedding, k):
         D, I = self.index.search(np.array([embedding]).astype('float32'), k)
-        return [self.docs[i] for i in I[0]]
+        return [self.docs[i]["text"] for i in I[0]]
 
     def _save(self):
         with tempfile.TemporaryDirectory() as tmpdir:

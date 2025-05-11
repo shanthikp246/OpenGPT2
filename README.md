@@ -1,10 +1,15 @@
 # OpenGPT2
+Prereqs:
+- copilot installed (brew install aws/tap/copilot-cli)
+- jq installed (brew install jq)
+- You’ve run aws configure for us-west-2
+- Docker is running
+
 RAG based system
-- Reads and indexes files using FAISS
+- Reads files from S3 and indexes files using FAISS
 - Uses sentence transformer as the embedding model
 - Uses Flan-T5 LLM for generation
 - Uses FastApi to provide a query endpoint
-- 
    
 rag-api/
 │
@@ -46,4 +51,6 @@ rag-api/
 └── query/
     ├── __init__.py
     └── rag_query_engine.py        # Combines query, retrieve, and generate
+
+
 

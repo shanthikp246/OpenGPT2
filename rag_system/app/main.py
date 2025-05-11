@@ -1,13 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from orchestrator.default_orchestrator import DefaultRAGOrchestrator
+from orchestrator.local_orchestrator import LocalRAGOrchestrator
 
 app = FastAPI()
 
 # Load orchestrator and initialize
-orchestrator = DefaultRAGOrchestrator(
-    s3_bucket="your-s3-bucket",
-    s3_prefix="your-data-prefix",
+orchestrator = LocalRAGOrchestrator(
+    doc_path="./documents",
     index_path="vector_index/index.bin"
 )
 orchestrator.initialize()

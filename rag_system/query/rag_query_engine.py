@@ -1,6 +1,6 @@
-from ..embedding.base import EmbeddingModel
-from ..vectordb.base import VectorDB
-from ..llm.base import LLMModel
+from embedding.base import EmbeddingModel
+from vectordb.base import VectorDB
+from llm.base import LLMModel
 
 class RAGQueryEngine:
     def __init__(self, embedder: EmbeddingModel, vectordb: VectorDB, llm: LLMModel):
