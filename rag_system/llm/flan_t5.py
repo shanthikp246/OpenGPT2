@@ -3,7 +3,7 @@ import torch
 from .base import LLMModel
 
 class FlanT5(LLMModel):
-    def __init__(self, model_name="google/flan-t5-base"):
+    def __init__(self, model_name="google/flan-t5-large"):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"

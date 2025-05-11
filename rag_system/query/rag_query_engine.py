@@ -12,4 +12,5 @@ class RAGQueryEngine:
         q_embedding = self.embedder.embed([query_text])[0]
         context_chunks = self.vectordb.query(q_embedding, top_k)
         context = "\n".join(context_chunks)
-        return self.llm.generate(context, query_text)
+        respone = self.llm.generate(context, query_text)
+        return {"context": context, "response": respone}
