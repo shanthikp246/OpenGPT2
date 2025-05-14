@@ -2,7 +2,7 @@ import os
 import json
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering, pipeline
 from train.qa_finetuner import QAFineTuner
-from train.qa_data_generator import QAGenerator
+from qa_generator import GeneratorExtractorQAGenerator
 from blobstore.local_blobstore import LocalBlobStore
 from parser.pdf_parser import PDFParser
 from inference.inference import Inference
@@ -24,17 +24,15 @@ class LocalInference(Inference):
         # Only fine-tune if model doesn't already exist
         if not os.path.exists(self.model_path):
             print("🔄 Fine-tuning pipeline initiated...")
-            generator = QAGenerator(blobstore=blobstore, parser=parser)
-            qa_pairs = generator.generate()
-            with open(self.qa_data_path, "w") as f:
-                json.dump(qa_pairs, f)
+            generator = GeneratorExtractorQAGenerator(blobstore=blobstore, parser=parser, self.qa_data_path)
+            generator.generate_qa_pairs()
 
             finetuner = QAFineTuner(
                 model_name="distilbert-base-cased",
                 output_dir=self.model_path
             )
             finetuner.train(self.qa_data_path)
-            finetuner.evaluate(self.qa_data_path)
+            # finetuner.evaluate(self.qa_data_path)
 
         # Load model and tokenizer
         print("📦 Loading fine-tuned model...")
