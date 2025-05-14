@@ -1,0 +1,7 @@
+1> copilot installed (brew install aws/tap/copilot-cli)
+
+2> jq installed (brew install jq)
+
+3> You’ve run aws configure for us-west-2
+
+4> Docker is running
