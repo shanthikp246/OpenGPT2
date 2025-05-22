@@ -36,5 +36,6 @@ class AwsInference(Inference):
 
             # Fine-tune and push model to S3
             finetuner = QAFineTuner(
+                blobstore=blobstore,
                 model_name="distilbert-base-case_
 

@@ -14,3 +14,6 @@ class BlobStore(ABC):
     @abstractmethod
     def download_file(self, remote_path: str, local_path: str): pass
 
+    @abstractmethod
+    def write_file(self, file_path: str, content: str): pass
+

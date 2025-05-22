@@ -3,5 +3,5 @@ from abc import ABC, abstractmethod
 
 class DocumentParser(ABC):
     @abstractmethod
-    def parse(self, file_path: str) -> str: pass
+    def parse(self, file_bytes: bytes) -> str: pass
 

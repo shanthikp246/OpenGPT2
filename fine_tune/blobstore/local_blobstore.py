@@ -28,3 +28,7 @@ class LocalBlobStore(BlobStore):
     def exists(self, file_path: str) -> bool:
         return os.path.exists(file_path)
 
+    def write_file(self, file_path: str, content: str) -> None:
+        with open(file_path, "w") as f:
+            f.write(content)
+

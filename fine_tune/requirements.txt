@@ -12,4 +12,10 @@ boto3
 fastapi
 uvicorn
 pdfminer.six
+PyMuPDF==1.23.22
+hf_xet
+
+
+
+
 

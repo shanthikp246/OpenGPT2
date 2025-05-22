@@ -8,7 +8,7 @@ from typing import List, Dict
 from transformers import pipeline
 from qa_generator.base import QAGenerator
 from blobstore.base import BlobStore
-from document_parser.base import DocumentParser
+from parser.base import DocumentParser
 
 class GeneratorExtractorQAGenerator(QAGenerator):
     def __init__(
