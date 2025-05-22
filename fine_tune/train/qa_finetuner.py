@@ -83,8 +83,8 @@ class QAFineTuner:
         return {"exact_match": np.mean(exact_matches)}
     
     def tokenize_examples(self, examples):
-    # Hugging Face expects this structure for extractive QA (like SQuAD)
-        return self.tokenizer(
+        # Hugging Face expects this structure for extractive QA (like SQuAD)
+        tokenized =  self.tokenizer(
             examples["question"],
             examples["context"],
             truncation="only_second",
@@ -94,6 +94,10 @@ class QAFineTuner:
             return_offsets_mapping=True,
             padding="max_length"
         )
+
+        # 🚫 Drop offset_mapping before returning
+        del tokenized.pop("offset_mapping", None)
+        return tokenized
 
     def train(self, qa_data_path):
         tokenized_train, tokenized_eval = self.prepare_data(qa_data_path)
