@@ -36,4 +36,9 @@ def answer_question(payload: QARequest):
 def get_status():
     return {"status": inference.get_status()}
 
+@app.get("/")
+def root():
+    return {"message": "Fine-tune API is running."}
+
+
 

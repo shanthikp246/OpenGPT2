@@ -27,3 +27,8 @@ def answer_question(payload: QARequest):
     answer, score = inference.generate(payload.question, payload.context)
     return {"answer": answer, "score": score}
 
+@app.get("/")
+def root():
+    return {"message": "Fine-tune API is running."}
+
+
