@@ -19,7 +19,7 @@ inference = LocalInference(
 
 inference.initialize()
 
-@app.post("/fine-tune-query")
+@app.post("/query")
 def answer_question(payload: QARequest):
     if not inference.is_ready():
         raise HTTPException(status_code=503, detail="Inference model not available.")

@@ -13,8 +13,7 @@ class AwsInference(Inference):
         self.s3_bucket = s3_bucket
         self.documents_prefix = documents_prefix
         self.qa_data_key = qa_data_key
-        self.model_prefix = model_prefix
-        self.model_path = tempfile.mkdtemp()
+        self.model_path = os.path.join(model_prefix, "finetuned-model")
         self.model = None
         self.qa_pipeline = None
 
@@ -34,6 +33,7 @@ class AwsInference(Inference):
                 model_name="distilbert-base-cased",
                 output_dir=self.model_path
             )
+            print("📊 Training model...")
             finetuner.train(self.qa_data_path)
     
             # Optional but recommended
@@ -42,4 +42,20 @@ class AwsInference(Inference):
         except Exception as e:
             print(f"🔥 Error fine-tuning model: {e}")
             raise
+
+
+        # Load model and tokenizer
+        print("📦 Loading fine-tuned model...")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+        self.model = AutoModelForQuestionAnswering.from_pretrained(self.model_path)
+        self.qa_pipeline = pipeline("question-answering", model=self.model, tokenizer=self.tokenizer)
+
+    def is_ready(self) -> bool:
+        return self.qa_pipeline is not None
+
+    def generate(self, question: str, context: str) -> tuple[str, float]:
+        result = self.qa_pipeline(question=question, context=context)
+        return result["answer"], result["score"]
+
+
 
