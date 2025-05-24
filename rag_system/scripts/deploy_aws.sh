@@ -7,6 +7,7 @@ SERVICE_NAME="api"
 ENV_NAME="test"
 REGION="us-west-2"
 DOCKER_IMAGE="rag-api"
+DOCKERFILE="Dockerfile.aws"
 
 echo "🔧 Checking for Copilot CLI..."
 if ! command -v copilot &> /dev/null; then
@@ -15,7 +16,7 @@ if ! command -v copilot &> /dev/null; then
 fi
 
 echo "🐳 Building Docker image..."
-docker build -t "$DOCKER_IMAGE" .
+docker build -f "$DOCKERFILE" -t "$DOCKER_IMAGE" .
 
 # Initialize app if not exists
 if ! copilot app show --name "$APP_NAME" &> /dev/null; then
@@ -29,7 +30,7 @@ if ! copilot svc show --name "$SERVICE_NAME" --app "$APP_NAME" &> /dev/null; the
   copilot svc init \
     --name "$SERVICE_NAME" \
     --svc-type "Load Balanced Web Service" \
-    --dockerfile "./Dockerfile"
+    --dockerfile "./$DOCKERFILE"
 fi
 
 # Initialize and deploy environment if not exists

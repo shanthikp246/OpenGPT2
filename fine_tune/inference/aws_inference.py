@@ -3,7 +3,7 @@ import json
 import tempfile
 from transformers import AutoTokenizer, AutoModelForQuestionAnswering, pipeline
 from train.qa_finetuner import QAFineTuner
-from train.qa_data_generator import QAGenerator
+from qa_generator.generator_extractor import GeneratorExtractorQAGenerator
 from blobstore.s3_blobstore import S3BlobStore
 from parser.pdf_parser import PDFParser
 from inference.inference import Inference
@@ -22,20 +22,24 @@ class AwsInference(Inference):
         blobstore = S3BlobStore(self.s3_bucket, prefix=self.documents_prefix)
         parser = PDFParser()
 
-        if not self._model_exists():
-            print("🔄 Fine-tuning pipeline initiated with S3 backend...")
-            generator = QAGenerator(blobstore=blobstore, parser=parser)
-            qa_pairs = generator.generate()
+        # Only fine-tune if model doesn't already exist
+        if not os.path.exists(self.model_path):
+            print("🔄 Fine-tuning pipeline initiated...")
+            generator = GeneratorExtractorQAGenerator(blobstore, parser, self.qa_data_path)
+            generator.generate_qa_pairs()
 
-            with tempfile.NamedTemporaryFile(mode='w+', delete=False) as f:
-                json.dump(qa_pairs, f)
-                qa_data_path = f.name
-
-            # Save QA pairs to S3
-            blobstore.write_file(self.qa_data_key, json.dumps(qa_pairs))
-
-            # Fine-tune and push model to S3
+        try:
             finetuner = QAFineTuner(
                 blobstore=blobstore,
-                model_name="distilbert-base-case_
+                model_name="distilbert-base-cased",
+                output_dir=self.model_path
+            )
+            finetuner.train(self.qa_data_path)
+    
+            # Optional but recommended
+            eval_results = finetuner.evaluate(self.qa_data_path)
+            print(f"📊 Evaluation Results: {eval_results}")
+        except Exception as e:
+            print(f"🔥 Error fine-tuning model: {e}")
+            raise
 
