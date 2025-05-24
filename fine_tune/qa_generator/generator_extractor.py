@@ -47,18 +47,18 @@ class GeneratorExtractorQAGenerator(QAGenerator):
                 questions = [q.strip() for q in questions_output.split('\n') if q.strip()]
                 questions = questions[:self.max_questions_per_chunk]
 
-                for question in questions:
-                    answer = self.answer_extractor(question=question, context=chunk)
-                    qa_dataset.append({
-                        "id": str(uuid.uuid4()),
-                        "title": os.path.basename(file_path),
-                        "context": chunk,
-                        "question": question,
-                        "answers": {
-                            "text": [answer["answer"]],
-                            "answer_start": [chunk.find(answer["answer"])]
-                        }
-                    })
+            for question in questions:
+                answer = self.answer_extractor(question=question, context=chunk)
+                qa_dataset.append({
+                    "id": str(uuid.uuid4()),
+                    "title": os.path.basename(file_path),
+                    "context": chunk,
+                    "question": question,
+                    "answers": {
+                        "text": [answer["answer"]],
+                        "answer_start": [chunk.find(answer["answer"])]
+                    }
+                })
 
         self.blobstore.write_file(self.output_path, json.dumps({"data": qa_dataset}, indent=2))
         print(f"Saved {len(qa_dataset)} QA pairs to {self.output_path}")

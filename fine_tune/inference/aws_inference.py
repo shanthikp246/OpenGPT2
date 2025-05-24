@@ -9,10 +9,10 @@ from parser.pdf_parser import PDFParser
 from inference.inference import Inference
 
 class AwsInference(Inference):
-    def __init__(self, s3_bucket: str, documents_prefix: str, model_prefix: str):
+    def __init__(self, s3_bucket: str, qa_data_path: str, model_output_dir: str):
         self.s3_bucket = s3_bucket
-        self.documents_prefix = documents_prefix
-        self.model_path = os.path.join(model_prefix, "finetuned-model")
+        self.qa_data_path = qa_data_path
+        self.model_path = model_output_dir
         self.model = None
         self.eval_results = None
         self.qa_pipeline = None
@@ -38,8 +38,8 @@ class AwsInference(Inference):
             )
             self.status = "Fine tuning model.."
             finetuner.train(self.qa_data_path)
+            
             self.status = "Evaluating model..."
-    
             # Optional but recommended
             self.eval_results = finetuner.evaluate(self.qa_data_path)
             print(f"📊 Evaluation Results: {self.eval_results}")

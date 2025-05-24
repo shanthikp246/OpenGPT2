@@ -13,9 +13,9 @@ class QARequest(BaseModel):
 
 # Set up AWS inference pipeline
 inference = AwsInference(
-    s3_bucket_name="documents",
+    s3_bucket="documents",
     qa_data_path="s3://documents/qa_pairs.json",
-    model_output_dir="s3://documents/checkpoints"
+    model_output_dir="s3://documents/checkpoints/finetuned-model"
 )
 
 def background_initialize():
