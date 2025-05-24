@@ -14,7 +14,9 @@ class AwsInference(Inference):
         self.documents_prefix = documents_prefix
         self.model_path = os.path.join(model_prefix, "finetuned-model")
         self.model = None
+        self.eval_results = None
         self.qa_pipeline = None
+        self.status = "initializing"
 
     def initialize(self):
         blobstore = S3BlobStore(self.s3_bucket, prefix=self.documents_prefix)
@@ -23,8 +25,10 @@ class AwsInference(Inference):
         # Only fine-tune if model doesn't already exist
         if not os.path.exists(self.model_path):
             print("🔄 Fine-tuning pipeline initiated...")
+            self.status = "Generate QA pairsinitiated"
             generator = GeneratorExtractorQAGenerator(blobstore, parser, self.qa_data_path)
             generator.generate_qa_pairs()
+            self.status = "Generate QA pairs complete"
 
         try:
             finetuner = QAFineTuner(
@@ -32,12 +36,13 @@ class AwsInference(Inference):
                 model_name="distilbert-base-cased",
                 output_dir=self.model_path
             )
-            print("📊 Training model...")
+            self.status = "Fine tuning model.."
             finetuner.train(self.qa_data_path)
+            self.status = "Evaluating model..."
     
             # Optional but recommended
-            eval_results = finetuner.evaluate(self.qa_data_path)
-            print(f"📊 Evaluation Results: {eval_results}")
+            self.eval_results = finetuner.evaluate(self.qa_data_path)
+            print(f"📊 Evaluation Results: {self.eval_results}")
         except Exception as e:
             print(f"🔥 Error fine-tuning model: {e}")
             raise
@@ -48,6 +53,7 @@ class AwsInference(Inference):
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
         self.model = AutoModelForQuestionAnswering.from_pretrained(self.model_path)
         self.qa_pipeline = pipeline("question-answering", model=self.model, tokenizer=self.tokenizer)
+        self.status = "Inference ready"
 
     def is_ready(self) -> bool:
         return self.qa_pipeline is not None
@@ -55,6 +61,9 @@ class AwsInference(Inference):
     def generate(self, question: str, context: str) -> tuple[str, float]:
         result = self.qa_pipeline(question=question, context=context)
         return result["answer"], result["score"]
+    
+    def get_status(self) -> dict:
+        return {"status": self.status}
 
 
 

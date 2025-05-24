@@ -32,4 +32,8 @@ def answer_question(payload: QARequest):
     answer, score = inference.generate(payload.question, payload.context)
     return {"answer": answer, "score": score}
 
+@app.get("/status")
+def get_status():
+    return {"status": inference.get_status()}
+
 

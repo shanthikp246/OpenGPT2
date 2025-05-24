@@ -13,3 +13,7 @@ class Inference(ABC):
     def generate(self, question: str, context: str) -> tuple[str, float]:
         pass
 
+    @abstractmethod
+    def get_status(self) -> dict:
+        pass
+
