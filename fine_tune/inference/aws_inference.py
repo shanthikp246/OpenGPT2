@@ -9,10 +9,9 @@ from parser.pdf_parser import PDFParser
 from inference.inference import Inference
 
 class AwsInference(Inference):
-    def __init__(self, s3_bucket: str, documents_prefix: str, qa_data_key: str, model_prefix: str):
+    def __init__(self, s3_bucket: str, documents_prefix: str, model_prefix: str):
         self.s3_bucket = s3_bucket
         self.documents_prefix = documents_prefix
-        self.qa_data_key = qa_data_key
         self.model_path = os.path.join(model_prefix, "finetuned-model")
         self.model = None
         self.qa_pipeline = None
