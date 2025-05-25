@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from inference.aws_inference import AwsInference
 from threading import Thread
+import asyncio
 
 app = FastAPI()
 
@@ -18,11 +19,11 @@ inference = AwsInference(
     model_output_dir="s3://documents/checkpoints/finetuned-model"
 )
 
-def background_initialize():
-    inference.initialize()
 
-# Kick off background initialization
-Thread(target=background_initialize, daemon=True).start()
+@app.on_event("startup")
+async def startup_event():
+    # Run the blocking initialize() in a background thread without blocking the event loop
+    await asyncio.to_thread(inference.initialize)
 
 @app.post("/query")
 def answer_question(payload: QARequest):
