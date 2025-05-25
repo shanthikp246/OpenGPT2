@@ -12,11 +12,12 @@ class QARequest(BaseModel):
     question: str
     context: str
 
+S3_BUCKET = "opengpt2documents"
 # Set up AWS inference pipeline
 inference = AwsInference(
-    s3_bucket="documents",
-    qa_data_path="s3://documents/qa_pairs.json",
-    model_output_dir="s3://documents/checkpoints/finetuned-model"
+    s3_bucket=S3_BUCKET,
+    qa_data_path=f"s3://{S3_BUCKET}/qa_pairs.json",
+    model_output_dir=f"s3://{S3_BUCKET}/checkpoints/finetuned-model"
 )
 
 
