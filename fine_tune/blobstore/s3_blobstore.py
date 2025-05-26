@@ -36,5 +36,20 @@ class S3BlobStore(BlobStore):
         self.s3.download_file(self.bucket, key, local_path)
 
     def write_file(self, file_path: str, content: str):
+        # No directory creation needed for S3
         key = self._full_key(file_path)
-        self.s3.put_object(Bucket=self.bucket, Key=key, Body=content.encode("utf-8"))
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=content)
+
+    def make_dirs_if_needed(self, file_path: str):
+        # No-op for S3
+        pass
+
+    def exists(self, file_path: str):
+        key = self._full_key(file_path)
+        try:
+            self.s3.head_object(Bucket=self.bucket, Key=key)
+            return True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                return False
+            raise

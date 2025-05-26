@@ -17,3 +17,10 @@ class BlobStore(ABC):
     @abstractmethod
     def write_file(self, file_path: str, content: str): pass
 
+    @abstractmethod
+    def exists(self, file_path: str): pass
+
+    def make_dirs_if_needed(self, file_path: str):
+        raise NotImplementedError
+
+
