@@ -2,11 +2,11 @@
 
 set -e
 
-APP_NAME="rag-api"
+APP_NAME="fine-tune"
 SERVICE_NAME="api"
-ENV_NAME="test"
+ENV_NAME="test2"
 REGION="us-west-2"
-DOCKER_IMAGE="rag-api"
+DOCKER_IMAGE="fine-tune"
 DOCKERFILE="Dockerfile.aws"
 
 echo "🔧 Checking for Copilot CLI..."
