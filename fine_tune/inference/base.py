@@ -25,8 +25,9 @@ class BaseInference(ABC):
         blobstore = self.get_blobstore()
 
         try:
+            self.last_error = f"Checking Model output directory: {self.model_path}"
             if not blobstore.exists(self.model_path):
-                print("🔄 Fine-tuning pipeline initiated...")
+                self.last_error = "🔄 Fine-tuning pipeline initiated..."
                 self.status = InferenceStatus.GENERATING_QA
                 generator = GeneratorExtractorQAGenerator(blobstore, parser, self.qa_data_path)
                 generator.generate_qa_pairs()
@@ -44,7 +45,7 @@ class BaseInference(ABC):
                 print(f"📊 Evaluation Results: {self.eval_results}")
 
             self.status = InferenceStatus.LOADING_MODEL
-            print("📦 Loading fine-tuned model...")
+            self.last_error = "📦 Loading fine-tuned model..."
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
             self.model = AutoModelForQuestionAnswering.from_pretrained(self.model_path)
             self.qa_pipeline = pipeline("question-answering", model=self.model, tokenizer=self.tokenizer)
