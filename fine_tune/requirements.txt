@@ -13,4 +13,4 @@ fastapi==0.109.0
 uvicorn==0.27.0
 pdfminer.six==20221105
 PyMuPDF==1.23.22
-hf_xet==0.16.2
+hf_xet==1.1.2
