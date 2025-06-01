@@ -59,4 +59,3 @@ permissions:
       Resource:
         - arn:aws:s3:::opengpt2documents
         - arn:aws:s3:::opengpt2documents/*
-
