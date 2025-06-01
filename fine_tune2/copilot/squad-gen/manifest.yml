@@ -1,0 +1,40 @@
+# The manifest for the "squad-gen" service.
+name: squad-gen
+type: Load Balanced Web Service
+
+# Distribute traffic to your service.
+http:
+  path: '/'
+  healthcheck: '/health'
+
+# Configuration for your containers and service.
+image:
+  build: Dockerfile
+  port: 8000
+
+cpu: 1024      # Increase CPU for ML processing
+memory: 2048   # Increase memory for transformers models
+platform: linux/x86_64
+count: 1
+exec: true
+
+network:
+  connect: true
+
+variables:
+  AWS_REGION: us-west-2
+  PORT: 8000
+
+# IAM permissions for S3 access
+permissions:
+  statements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:HeadObject
+        - s3:ListBucket
+        - s3:PutObject
+        - s3:DeleteObject
+      Resource:
+        - arn:aws:s3:::*
+        - arn:aws:s3:::*/*
