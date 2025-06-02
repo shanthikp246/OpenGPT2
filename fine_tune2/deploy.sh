@@ -72,7 +72,7 @@ build_and_push_image() {
     aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
     
     # Build image
-    docker build -t $ECR_REPO_NAME:$IMAGE_TAG .
+    docker build --platform linux/amd64 -t $ECR_REPO_NAME:$IMAGE_TAG .
     
     # Tag image for ECR
     docker tag $ECR_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
@@ -159,7 +159,24 @@ EOF
 create_ecs_cluster() {
     echo_info "Creating ECS cluster..."
     
-    aws ecs create-cluster --cluster-name $APP_NAME-cluster --capacity-providers FARGATE --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1 &> /dev/null || echo_warn "Cluster already exists"
+    # Check if cluster exists first
+    if aws ecs describe-clusters --clusters $APP_NAME-cluster --region $AWS_REGION --query 'clusters[0].status' --output text 2>/dev/null | grep -q "ACTIVE"; then
+        echo_warn "Cluster already exists and is active"
+    else
+        # Create cluster with basic configuration (works with all CLI versions)
+        aws ecs create-cluster --cluster-name $APP_NAME-cluster --region $AWS_REGION
+        
+        # Wait a moment for cluster to be ready
+        sleep 5
+        
+        # Verify cluster was created
+        if aws ecs describe-clusters --clusters $APP_NAME-cluster --region $AWS_REGION --query 'clusters[0].status' --output text 2>/dev/null | grep -q "ACTIVE"; then
+            echo_info "ECS cluster created successfully"
+        else
+            echo_error "Failed to create ECS cluster"
+            exit 1
+        fi
+    fi
     
     echo_info "ECS cluster ready"
 }
@@ -276,6 +293,9 @@ setup_networking() {
 create_ecs_service() {
     echo_info "Creating ECS service..."
     
+    # Convert subnet list to proper JSON array format
+    SUBNET_JSON=$(echo $SUBNET_IDS | tr ' ' '\n' | sed 's/^/"/' | sed 's/$/"/' | paste -sd ',' -)
+    
     cat > service-definition.json << EOF
 {
   "serviceName": "$APP_NAME-service",
@@ -285,7 +305,7 @@ create_ecs_service() {
   "launchType": "FARGATE",
   "networkConfiguration": {
     "awsvpcConfiguration": {
-      "subnets": ["${SUBNET_LIST//,/\",\"}"],
+      "subnets": [$SUBNET_JSON],
       "securityGroups": ["$SG_ID"],
       "assignPublicIp": "ENABLED"
     }
