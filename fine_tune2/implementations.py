@@ -95,8 +95,7 @@ class TransformerQuestionGenerator(IQuestionGenerator):
     def __init__(self):
         self.qa_pipeline = None
         self.tokenizer = None
-        self._initialize_model()
-    
+        
     def _initialize_model(self):
         try:
             # Use a question generation model
@@ -112,6 +111,10 @@ class TransformerQuestionGenerator(IQuestionGenerator):
             self.qa_pipeline = None
     
     async def generate_qa_pairs(self, context: str, doc_id: str) -> List[SQuADExample]:
+        if not self.qa_pipeline:
+            logger.info("Initializing QA model...")
+            self._initialize_model()
+
         if not self.qa_pipeline:
             logger.error("QA pipeline not initialized")
             return []

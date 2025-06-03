@@ -12,8 +12,8 @@ image:
   build: Dockerfile
   port: 8000
 
-cpu: 1024      # Increase CPU for ML processing
-memory: 2048   # Increase memory for transformers models
+cpu: 2     # Increase CPU for ML processing
+memory: 1024   # Increase memory for transformers models
 platform: linux/x86_64
 count: 1
 exec: true

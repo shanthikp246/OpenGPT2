@@ -1,0 +1,35 @@
+# The manifest for the "api" service.
+name: api
+type: Load Balanced Web Service
+
+http:
+  path: '/'
+  healthcheck: '/health'
+
+image:
+  build: Dockerfile
+  port: 8000
+
+cpu: 256
+memory: 2048
+platform: linux/x86_64
+count: 1
+exec: true
+network:
+  connect: true
+
+task:
+  permissions:
+    statements:
+      - Effect: Allow
+        Action:
+          - s3:ListBucket
+        Resource:
+          - arn:aws:s3:::opengpt2documents
+      - Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:PutObject
+          - s3:DeleteObject
+        Resource:
+          - arn:aws:s3:::opengpt2documents/*
