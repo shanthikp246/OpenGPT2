@@ -1,0 +1,56 @@
+Access policy for S3 bucket
+
+1> create a s3-full-access-managed-policy.json file with following contents
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::opengpt2documents"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::opengpt2documents/*"
+    }
+  ]
+}
+
+2> Create managed policy using AWS CLI
+
+aws iam create-policy \
+  --policy-name S3FullAccessToOpenGPT2Documents \
+  --policy-document file://s3-full-access-managed-policy.json
+
+{
+    "Policy": {
+        "PolicyName": "S3FullAccessToOpenGPT2Documents",
+        "PolicyId": "ANPAQKGGXBWQYZAAS5RB2",
+        "Arn": "arn:aws:iam::021891583393:policy/S3FullAccessToOpenGPT2Documents",
+        "Path": "/",
+        "DefaultVersionId": "v1",
+        "AttachmentCount": 0,
+        "PermissionsBoundaryUsageCount": 0,
+        "IsAttachable": true,
+        "CreateDate": "2025-06-04T17:01:58+00:00",
+        "UpdateDate": "2025-06-04T17:01:58+00:00"
+    }
+}
+
+3> Note the ARN in the output
+arn:aws:iam::021891583393:policy/S3FullAccessToOpenGPT2Documents
+
+4> Attach the managed policy to your task Role
+
+aws iam attach-role-policy \
+  --role-name squad-gen-test-api-TaskRole-ufQzoifjP68v \
+  --policy-arn arn:aws:iam::021891583393:policy/S3FullAccessToOpenGPT2Documents
+
+5> Redeploy the services
+copilot deploy --name api --env test
+
