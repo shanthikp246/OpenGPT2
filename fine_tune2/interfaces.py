@@ -47,16 +47,6 @@ class IBlobStore(ABC):
     async def file_exists(self, bucket: str, key: str) -> bool:
         pass
 
-class IDocumentExtractor(ABC):
-    @abstractmethod
-    async def extract_text(self, file_content: bytes, file_extension: str) -> str:
-        pass
-
-class IQuestionGenerator(ABC):
-    @abstractmethod
-    async def generate_qa_pairs(self, context: str, doc_id: str) -> List[SQuADExample]:
-        pass
-
 class IStatusTracker(ABC):
     @abstractmethod
     async def update_status(self, task_id: str, status: GenerationStatus) -> None:
@@ -64,4 +54,40 @@ class IStatusTracker(ABC):
     
     @abstractmethod
     async def get_status(self, task_id: str) -> Optional[GenerationStatus]:
+        pass
+
+from abc import ABC, abstractmethod
+from typing import List, Dict
+
+# --- Updated Interface Definitions ---
+
+class IDocumentExtractor(ABC):
+    @abstractmethod
+    async def extract_sections(self, file_content: bytes, file_extension: str) -> List[Dict]:
+        """
+        Extracts both text blocks and tables from a document.
+
+        Returns a list of sections with:
+        - type: 'text' or 'table'
+        - content: extracted text
+        - page: page number (optional)
+        """
+        pass
+
+
+class IQAGenerator(ABC):
+    @abstractmethod
+    async def generate_qa_pairs(self, sections: List[Dict], doc_id: str) -> List["SQuADExample"]:
+        """
+        Generates QA pairs from structured sections of text/tables.
+        Each section has 'type', 'content', and optionally 'page'.
+        """
+        pass
+
+    @abstractmethod
+    def status(self) -> bool:
+        pass
+
+    @abstractmethod
+    async def init_models(self):
         pass

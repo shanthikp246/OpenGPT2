@@ -38,9 +38,9 @@ class StatusResponse(BaseModel):
     total_files: int
     processed_files: int
     generated_examples: int
-    error_message: str = None
+    error_message: Optional[str] = None
     started_at: str = None
-    completed_at: str = None
+    completed_at: Optional[str] = None
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -51,15 +51,16 @@ app = FastAPI(
 
 # Initialize dependencies
 blob_store = S3BlobStore(region_name=os.getenv("AWS_REGION", "us-west-2"))
-document_extractor = DocumentExtractor()
-question_generator = TransformerQuestionGenerator()
+document_extractor = PdfPlumberExtractor()
+#qa_generator = TransformerQuestionGenerator()
+qa_generator = GeneratorExtractorQAGenerator()
 status_tracker = InMemoryStatusTracker()
 
 # Initialize generator
 generator = SQuADDatasetGenerator(
     blob_store=blob_store,
     document_extractor=document_extractor,
-    question_generator=question_generator,
+    qa_generator=qa_generator,
     status_tracker=status_tracker
 )
 
@@ -74,30 +75,6 @@ async def root():
             "/health": "GET - Health check"
         }
     }
-
-@app.post("/gen", response_model=GenerationResponse)
-async def generate_dataset(request: GenerationRequest):
-    """
-    Start background task to generate SQuAD dataset from S3 bucket
-    """
-    try:
-        logger.info(f"Starting dataset generation for bucket: {request.bucket_name}")
-        
-        # Validate bucket name
-        if not request.bucket_name or not request.bucket_name.strip():
-            raise HTTPException(status_code=400, detail="Bucket name cannot be empty")
-        
-        # Start generation
-        task_id = await generator.start_generation(request.bucket_name)
-        
-        return GenerationResponse(
-            task_id=task_id,
-            message=f"Dataset generation started for bucket '{request.bucket_name}'. Use /status/{task_id} to check progress."
-        )
-        
-    except Exception as e:
-        logger.error(f"Error starting generation: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to start generation: {str(e)}")
 
 @app.get("/status/{task_id}", response_model=StatusResponse)
 async def get_status(task_id: str):
@@ -158,20 +135,48 @@ async def list_all_statuses():
         raise HTTPException(status_code=500, detail=f"Failed to list statuses: {str(e)}")
 
 @app.get("/health")
-async def health_check():
+async def health():
+    return {"status": "ok"}
+
+
+@app.post("/gen", response_model=GenerationResponse)
+async def generate_dataset(request: GenerationRequest):
     """
-    Health check endpoint
+    Start background task to generate SQuAD dataset from S3 bucket.
     """
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "components": {
-            "blob_store": "ok",
-            "document_extractor": "ok",
-            "question_generator": "ok" if question_generator.qa_pipeline else "error",
-            "status_tracker": "ok"
-        }
-    }
+    try:
+        logger.info(f"Starting dataset generation for bucket: {request.bucket_name}")
+
+        if not request.bucket_name or not request.bucket_name.strip():
+            raise HTTPException(status_code=400, detail="Bucket name cannot be empty")
+
+        # Generate task_id and store 'pending' status
+        task_id = str(uuid.uuid4())
+
+        await generator.status_tracker.update_status(task_id, GenerationStatus(
+            task_id=task_id,
+            bucket_name=request.bucket_name,
+            status="pending",
+            total_files=0,
+            processed_files=0,
+            generated_examples=0,
+            started_at=datetime.utcnow().isoformat(),
+            completed_at=None,
+            error_message=None
+        ))
+
+        # ✅ Fire-and-forget background generation
+        asyncio.create_task(generator.generate_dataset_task(task_id, request.bucket_name))
+
+        return GenerationResponse(
+            task_id=task_id,
+            message=f"Dataset generation started for bucket '{request.bucket_name}'. Use /status/{task_id} to check progress."
+        )
+
+    except Exception as e:
+        logger.error(f"Error starting generation: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start generation: {str(e)}")
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

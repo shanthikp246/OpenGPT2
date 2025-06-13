@@ -18,41 +18,25 @@ class SQuADDatasetGenerator:
         self,
         blob_store: IBlobStore,
         document_extractor: IDocumentExtractor,
-        question_generator: IQuestionGenerator,
+        qa_generator: IQAGenerator,
         status_tracker: IStatusTracker
     ):
         self.blob_store = blob_store
         self.document_extractor = document_extractor
-        self.question_generator = question_generator
+        self.qa_generator = qa_generator
         self.status_tracker = status_tracker
+
+    async def init_models(self):
+        await self.qa_generator.init_models()
     
-    async def start_generation(self, bucket_name: str) -> str:
-        """Start background task to generate SQuAD dataset from S3 bucket"""
-        task_id = str(uuid.uuid4())
-        
-        # Initialize status
-        status = GenerationStatus(
-            task_id=task_id,
-            bucket_name=bucket_name,
-            status="pending",
-            total_files=0,
-            processed_files=0,
-            generated_examples=0,
-            started_at=datetime.utcnow().isoformat()
-        )
-        
-        await self.status_tracker.update_status(task_id, status)
-        
-        # Start background task
-        asyncio.create_task(self._generate_dataset_task(task_id, bucket_name))
-        
-        return task_id
     
-    async def _generate_dataset_task(self, task_id: str, bucket_name: str):
+    async def generate_dataset_task(self, task_id: str, bucket_name: str):
         """Background task to process all files in S3 bucket"""
         try:
             logger.info(f"Starting dataset generation for bucket: {bucket_name}")
-            
+            import psutil
+            logger.info(f"Memory used at startup: {psutil.Process().memory_info().rss / 1024**2:.2f} MB")
+
             # Update status to running
             status = await self.status_tracker.get_status(task_id)
             status.status = "running"
@@ -104,7 +88,7 @@ class SQuADDatasetGenerator:
             logger.info(f"Dataset generation completed. Generated {len(all_qa_pairs)} QA pairs")
             
         except Exception as e:
-            logger.error(f"Error in dataset generation task: {e}")
+            logger.exception(f"Uncaught error in background generation task for {task_id}: {e}")
             
             # Mark as failed
             status = await self.status_tracker.get_status(task_id)
@@ -129,7 +113,7 @@ class SQuADDatasetGenerator:
             
             # Generate QA pairs
             doc_id = Path(file_info.key).stem
-            qa_pairs = await self.question_generator.generate_qa_pairs(text, doc_id)
+            qa_pairs = await self.qa_generator.generate_qa_pairs(text, doc_id)
             
             return qa_pairs
             

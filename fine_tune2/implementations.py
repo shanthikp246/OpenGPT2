@@ -9,8 +9,14 @@ from botocore.exceptions import ClientError
 import fitz  # PyMuPDF
 from pdfminer.high_level import extract_text
 import asyncio
-from transformers import pipeline, AutoTokenizer, AutoModelForQuestionAnswering
 import logging
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering
+import torch
+import os
+import textwrap
+from typing import List, Dict
+import psutil
+
 
 from interfaces import *
 
@@ -91,119 +97,6 @@ class DocumentExtractor(IDocumentExtractor):
                 logger.error(f"Error extracting PDF text with pdfminer: {e2}")
                 return ""
 
-class TransformerQuestionGenerator(IQuestionGenerator):
-    def __init__(self):
-        self.qa_pipeline = None
-        self.tokenizer = None
-        
-    def _initialize_model(self):
-        try:
-            # Use a question generation model
-            model_name = "distilbert-base-uncased-distilled-squad"
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.qa_pipeline = pipeline(
-                "question-answering",
-                model=model_name,
-                tokenizer=self.tokenizer
-            )
-        except Exception as e:
-            logger.error(f"Error initializing QA model: {e}")
-            self.qa_pipeline = None
-    
-    async def generate_qa_pairs(self, context: str, doc_id: str) -> List[SQuADExample]:
-        if not self.qa_pipeline:
-            logger.info("Initializing QA model...")
-            self._initialize_model()
-
-        if not self.qa_pipeline:
-            logger.error("QA pipeline not initialized")
-            return []
-        
-        try:
-            # Split context into chunks
-            chunks = self._split_text(context, max_length=512)
-            qa_pairs = []
-            
-            for i, chunk in enumerate(chunks):
-                # Generate questions for this chunk
-                questions = self._generate_questions_for_chunk(chunk)
-                
-                for j, question in enumerate(questions):
-                    # Generate answer using the QA model
-                    try:
-                        result = self.qa_pipeline(question=question, context=chunk)
-                        
-                        qa_pairs.append(SQuADExample(
-                            context=chunk,
-                            question=question,
-                            answer=result['answer'],
-                            answer_start=result['start'],
-                            id=f"{doc_id}_chunk_{i}_qa_{j}"
-                        ))
-                    except Exception as e:
-                        logger.error(f"Error generating answer for question: {e}")
-                        continue
-            
-            return qa_pairs
-        except Exception as e:
-            logger.error(f"Error generating QA pairs: {e}")
-            return []
-    
-    def _split_text(self, text: str, max_length: int = 512) -> List[str]:
-        # Simple sentence-based splitting
-        sentences = re.split(r'[.!?]+', text)
-        chunks = []
-        current_chunk = ""
-        
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-                
-            if len(current_chunk) + len(sentence) < max_length:
-                current_chunk += sentence + ". "
-            else:
-                if current_chunk:
-                    chunks.append(current_chunk.strip())
-                current_chunk = sentence + ". "
-        
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-        
-        return [chunk for chunk in chunks if len(chunk) > 50]  # Filter out very short chunks
-    
-    def _generate_questions_for_chunk(self, chunk: str) -> List[str]:
-        # Simple rule-based question generation
-        # In a real implementation, you'd use a more sophisticated question generation model
-        questions = []
-        
-        # Extract named entities and create questions
-        words = chunk.split()
-        
-        # Who questions
-        if any(word.lower() in ['he', 'she', 'they', 'person', 'people'] for word in words):
-            questions.append("Who is mentioned in this text?")
-        
-        # What questions
-        if any(word.lower() in ['what', 'which', 'how'] for word in words):
-            questions.append("What is the main topic discussed?")
-        
-        # When questions
-        if any(word.isdigit() or word.lower() in ['today', 'yesterday', 'year', 'month'] for word in words):
-            questions.append("When did this occur?")
-        
-        # Where questions
-        if any(word.lower() in ['where', 'location', 'place', 'city', 'country'] for word in words):
-            questions.append("Where did this take place?")
-        
-        # Default questions
-        if not questions:
-            questions = [
-                "What is the main point of this text?",
-                "What information is provided in this passage?"
-            ]
-        
-        return questions[:3]  # Limit to 3 questions per chunk
 
 class InMemoryStatusTracker(IStatusTracker):
     def __init__(self):
@@ -214,3 +107,138 @@ class InMemoryStatusTracker(IStatusTracker):
     
     async def get_status(self, task_id: str) -> Optional[GenerationStatus]:
         return self.statuses.get(task_id)
+    
+
+class PdfPlumberExtractor(IDocumentExtractor):
+    async def extract_text(self, file_content: bytes, file_extension: str) -> str:
+        import io
+        text_output = []
+
+        with pdfplumber.open(io.BytesIO(file_content)) as pdf:
+            for page in pdf.pages:
+                # Extract plain text
+                page_text = page.extract_text() or ""
+
+                # Extract tables and convert to text
+                tables = page.extract_tables()
+                for table in tables:
+                    if table:
+                        for row in table:
+                            page_text += "\n" + "\t".join(cell if cell else "" for cell in row)
+
+                text_output.append(page_text.strip())
+
+        return "\n\n".join(text_output).strip()
+
+class GeneratorExtractorQAGenerator(IQAGenerator):
+    def __init__(self, chunk_size: int = 512, max_questions_per_chunk: int = 5):
+        self.max_questions_per_chunk = max_questions_per_chunk
+        self.initialized = False
+        self.question_generator = None
+        self.answer_extractor = None
+        #model="google/flan-t5-large",
+        self.question_model = "google/flan-t5-base"
+        #self.answer_model = "distilbert-base-uncased"
+        self.answer_model = "distilbert-base-cased-distilled-squad"
+        self.chunk_size = chunk_size
+       
+
+    async def init_models(self):
+        if self.initialized:
+            return
+
+        logger.info("Initializing QA generator models...")
+        loop = asyncio.get_event_loop()
+
+        # Load the models in a thread-safe background executor
+        self.question_generator = await loop.run_in_executor(
+            None,
+            lambda: pipeline(
+                "text2text-generation",
+                
+                 model=self.question_model,
+                max_length=64,
+                device=0 if torch.cuda.is_available() else -1
+            )
+        )
+
+        self.answer_extractor = await loop.run_in_executor(
+            None,
+            lambda: pipeline(
+                "question-answering",
+                
+                model=self.answer_model,
+                device=0 if torch.cuda.is_available() else -1
+            )
+        )
+
+        tokenizer_q = AutoTokenizer.from_pretrained(self.question_model)
+        tokenizer_a = AutoTokenizer.from_pretrained(self.answer_model)
+        self.chunk_size = min(tokenizer_q.model_max_length, tokenizer_a.model_max_length, self.chunk_size)
+        self.initialized = True
+        logger.info("QA generator models loaded successfully.")
+
+    def status(self) -> bool:
+        return self.initialized
+    
+    def split_text(self, text: str) -> List[str]:
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained(self.question_model)
+        tokens = tokenizer(text, return_tensors="pt", truncation=False)["input_ids"][0]
+        chunks = []
+        for i in range(0, len(tokens), self.chunk_size):
+            chunk = tokenizer.decode(tokens[i:i + self.chunk_size], skip_special_tokens=True)
+            chunks.append(chunk)
+        return chunks
+
+    async def generate_qa_pairs(self, text: str, doc_id: str) -> List[SQuADExample]:
+        if not self.initialized:
+            logger.info(f"Before model load: {psutil.Process().memory_info().rss / (1024*1024):.2f} MB")
+            await self.init_models()
+        
+        logger.info(f"After model load: {psutil.Process().memory_info().rss / (1024*1024):.2f} MB")
+
+        qa_dataset = []
+        chunks = self.split_text(text)
+        empty_answers = 0
+
+        for i, chunk in enumerate(chunks):
+            try:
+                prompt = f"Generate {self.max_questions_per_chunk} questions from the following text:\n{chunk}"
+                outputs = self.question_generator(prompt, num_return_sequences=1)
+
+                # Try to split multi-line output into individual questions
+                raw_output = outputs[0]['generated_text']
+                questions = [q.strip() for q in raw_output.split('\n') if q.strip()]
+                questions = questions[:self.max_questions_per_chunk]
+
+                for j, question in enumerate(questions):
+                    try:
+                        answer = self.answer_extractor(question=question, context=chunk)
+                        answer_text = answer.get("answer", "").strip()
+                        if not answer_text:
+                            empty_answers += 1
+                            logger.warning(f"Empty answer for Q{i}-{j}: {question}")
+                            continue
+
+                        qa_dataset.append(SQuADExample(
+                            context=chunk,
+                            question=question,
+                            answer=answer_text,
+                            answer_start=answer.get("start", -1),
+                            id=f"{doc_id}_chunk_{i}_qa_{j}"
+                        ))
+
+                    except Exception as e:
+                        logger.warning(f"Failed to extract answer for Q{i}-{j}: {question} -> {e}")
+                        continue
+
+            except Exception as e:
+                logger.warning(f"Failed to generate questions for chunk {i}: {e}")
+                continue
+
+        await asyncio.sleep(0)  # cooperative multitasking
+        logger.info(f"Processed {len(chunks)} chunks, generated {len(qa_dataset)} QA pairs. empty answers: {empty_answers}")
+        return qa_dataset
+
+

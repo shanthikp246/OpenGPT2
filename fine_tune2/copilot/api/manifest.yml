@@ -3,15 +3,21 @@ name: api
 type: Load Balanced Web Service
 
 http:
-  path: '/'
-  healthcheck: '/health'
+  path: "/"
+  healthcheck:
+    path: "/health"
+    interval: 60s
+    timeout: 30s
+    retries: 5
+    start_period: 120s  # allow 2 minutes for model loading
+
 
 image:
   build: Dockerfile
   port: 8000
 
-cpu: 256
-memory: 2048
+cpu: 2048
+memory: 4096
 platform: linux/x86_64
 count: 1
 exec: true
