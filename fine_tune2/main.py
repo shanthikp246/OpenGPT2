@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Pydantic models
 class GenerationRequest(BaseModel):
-    bucket_name: str
+    bucket_name: str = "opengpt2documents"
 
 class GenerationResponse(BaseModel):
     task_id: str
