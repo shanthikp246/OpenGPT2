@@ -63,15 +63,7 @@ from typing import List, Dict
 
 class IDocumentExtractor(ABC):
     @abstractmethod
-    async def extract_sections(self, file_content: bytes, file_extension: str) -> List[Dict]:
-        """
-        Extracts both text blocks and tables from a document.
-
-        Returns a list of sections with:
-        - type: 'text' or 'table'
-        - content: extracted text
-        - page: page number (optional)
-        """
+    async def extract_text(self, file_content: bytes, file_extension: str) -> str:
         pass
 
 

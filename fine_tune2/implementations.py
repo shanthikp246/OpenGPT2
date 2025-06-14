@@ -110,6 +110,7 @@ class InMemoryStatusTracker(IStatusTracker):
     
 
 class PdfPlumberExtractor(IDocumentExtractor):
+
     async def extract_text(self, file_content: bytes, file_extension: str) -> str:
         import io
         text_output = []
