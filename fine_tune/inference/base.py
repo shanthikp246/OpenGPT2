@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from transformers import AutoTokenizer, AutoModelForQuestionAnswering, pipeline
-from train.qa_finetuner import QAFineTuner
-from qa_generator.generator_extractor import GeneratorExtractorQAGenerator
-from parser.pdf_parser import PDFParser
+from transformers import AutoModelForQuestionAnswering, AutoTokenizer, pipeline
+
+from ..qa_generator.generator_extractor import GeneratorExtractorQAGenerator
+from ..parser.pdf_parser import PDFParser
+from ..train.qa_finetuner import QAFineTuner
 
 class BaseInference(ABC):
     def __init__(self, qa_data_path, model_output_dir):
@@ -20,34 +21,43 @@ class BaseInference(ABC):
     def get_blobstore(self):
         pass
 
+    def _resolve_blob_path(self, path: str) -> str:
+        if isinstance(path, str) and path.startswith("s3://"):
+            _, _, remainder = path.partition("://")
+            _, _, key = remainder.partition("/")
+            return key
+        return path
+
     def initialize(self):
         parser = PDFParser()
         blobstore = self.get_blobstore()
+        dataset_path = self._resolve_blob_path(self.qa_data_path)
+        model_path = self._resolve_blob_path(self.model_path)
 
         try:
-            self.last_error = f"Checking Model output directory: {self.model_path}"
-            if not blobstore.exists(self.model_path):
+            self.last_error = f"Checking Model output directory: {model_path}"
+            if not blobstore.exists(model_path):
                 self.last_error = "🔄 Fine-tuning pipeline initiated..."
                 self.status = InferenceStatus.GENERATING_QA
-                generator = GeneratorExtractorQAGenerator(blobstore, parser, self.qa_data_path)
+                generator = GeneratorExtractorQAGenerator(blobstore, parser, dataset_path)
                 generator.generate_qa_pairs()
 
                 self.status = InferenceStatus.FINE_TUNING
                 finetuner = QAFineTuner(
                     blobstore=blobstore,
                     model_name="distilbert-base-cased",
-                    output_dir=self.model_path
+                    output_dir=model_path
                 )
-                finetuner.train(self.qa_data_path)
+                finetuner.train(dataset_path)
 
                 self.status = InferenceStatus.EVALUATING
-                self.eval_results = finetuner.evaluate(self.qa_data_path)
+                self.eval_results = finetuner.evaluate(dataset_path)
                 print(f"📊 Evaluation Results: {self.eval_results}")
 
             self.status = InferenceStatus.LOADING_MODEL
             self.last_error = "📦 Loading fine-tuned model..."
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
-            self.model = AutoModelForQuestionAnswering.from_pretrained(self.model_path)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+            self.model = AutoModelForQuestionAnswering.from_pretrained(model_path)
             self.qa_pipeline = pipeline("question-answering", model=self.model, tokenizer=self.tokenizer)
 
             self.status = InferenceStatus.READY

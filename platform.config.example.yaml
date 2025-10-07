@@ -1,0 +1,14 @@
+# Example configuration for the zero-code platform
+rag:
+  mode: local
+  documents_path: ./documents
+  index_path: vector_index/index.bin
+  host: 0.0.0.0
+  port: 8001
+fineTune:
+  documents_path: ./documents
+  qa_data_path: ./checkpoints/qa_pairs.json
+  model_output_dir: ./checkpoints
+  host: 0.0.0.0
+  port: 8002
+  generate_on_startup: true
