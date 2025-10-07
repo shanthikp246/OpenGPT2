@@ -2,7 +2,8 @@
 import fitz  # PyMuPDF exposes itself as 'fitz'
 from .base import DocumentParser
 
-class PDFParser:
+
+class PDFParser(DocumentParser):
     def parse(self, file_bytes: bytes) -> str:
         """Extract text from PDF bytes."""
         doc = fitz.open(stream=file_bytes, filetype="pdf")
